@@ -1,0 +1,46 @@
+# From: https://github.com/Joxit/docker-registry-ui/blob/main/examples/ui-as-proxy/simple.yml
+# Also see: https://github.com/Joxit/docker-registry-ui/issues/25
+
+version: '3.8'
+
+networks:
+  registry-ui-net:
+    
+volumes:
+  registry:
+    name: registry
+
+
+services:
+  
+  registry:
+    image: registry:2
+    volumes:
+      - "${DOCKER_REGISTRY_PATH:-registry}:/var/lib/registry"
+    ports:
+      - 5000:5000
+    environment:
+      REGISTRY_PROXY_REMOTEURL: "https://registry-1.docker.io"
+      # NOTE: You MUST use this format for the value of an http header,
+      # otherwise the docker yaml parser will bomb:  '["<header-string>"]'
+      # These env vars get re-written into the /etc/docker/registry/config.yml file.
+      # Also note that yaml can handle this key, but I'm quoting it just to be safe.
+      'REGISTRY_HTTP_HEADERS_Access-Control-Allow-Origin': '["*"]'
+    networks:
+      - registry-ui-net
+      
+  ui:
+    image: joxit/docker-registry-ui:latest
+    ports:
+      - 5001:80
+    environment:
+      - REGISTRY_TITLE=Local Registry
+      - NGINX_PROXY_PASS_URL=http://registry:5000
+      - SINGLE_REGISTRY=true
+      - URL="http://localhost:5000"
+      - REGISTRY_URL="http://localhost:5000"
+    depends_on:
+      - registry
+    networks:
+      - registry-ui-net
+
